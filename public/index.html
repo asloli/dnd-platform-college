@@ -1,0 +1,519 @@
+<!--
+	1. 我把聊天室的字自動保存了 (後來的人看得到之前在說啥)
+	2. 修正閒聊訊息會跑錯棚的bug
+	3. 稍微幫創造地圖跟創造物件的那邊做了點防呆
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
+	<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+	<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js" integrity="sha384-smHYKdLADwkXOn1EmN1qk/HfnUcbVRZyYmZ4qpPea6sjB/pTJ0euyQp0Mk8ck+5T" crossorigin="anonymous"></script>
+	
+	<script src="/socket.io/socket.io.js"></script>
+	<script>var socket = io.connect();</script>
+
+	<title>跑圖囉</title>
+	<link rel=stylesheet type="text/css" href="indexStyles.css">
+	<script src="socketFunction.js"></script>
+
+	<script src="mapFunctions.js"></script>
+</head>
+<body>
+	<div>
+		<!-- 地圖在這邊 -->
+		<div id="dm_map_edit">
+			<input type="file" id="uploader" />
+			<input type="button" value="輸出地圖檔案(背景+物件)" onclick="saveTextAsFile(allObjJson['name'], JSON.stringify(allObjJson))"/>
+			<input type="button" value="顯示圖像" onclick="drawDrid(ctxHid, ''); ctxHid.stroke(); drawMagnifier(canvasMapHid);"/>
+			<input type="button" value="建立空白地圖(刷空物件)" onclick="newMap();" />
+			<input type="button" value="建立物件" onclick="newObj();" />
+		</div>
+
+		<canvas id="maphid" style="display: none;"  width="1000" height="1000"></canvas>
+		<canvas id="map" width="1000" height="1000"></canvas>
+
+		<!-- 角色列表 -->
+		<div class="bottom_cbox" onContextMenu="return false">
+			<!-- 自己的角色 -->
+			<div class="character_box" id="character_info_main">
+				<div class="character_box_inside">
+					<p id="myName" class="all_character_name">無</p>
+				</div>
+			</div>
+			<!-- 分割線 -->
+			<div class="character_box_dis"></div>
+			<!-- 其它的角色 -->
+			<div class="bottom_scroll" id="bottom_scroll">
+				<!-- 長度隨著角色數量而變動 -->
+				<div class="character_box_set">
+					<!-- 其他玩家（接上資料庫後，此區塊會轉為陣列） -->
+					<div class="character_box"><div class="character_box_inside"><p class="all_character_name">玲</p></div></div>
+					<div class="character_box"><div class="character_box_inside"><p class="all_character_name">Achunk</p></div></div>
+					<div class="character_box"><div class="character_box_inside"><p class="all_character_name">艾爾溫</p></div></div>
+					<div class="character_box"><div class="character_box_inside"><p class="all_character_name">Ashes</p></div></div>
+					<div class="character_box"><div class="character_box_inside"><p class="all_character_name">哥布</p></div></div>
+					<div class="character_box"><div class="character_box_inside"><p class="all_character_name">邁爾斯</p></div></div>
+					<div class="character_box"><div class="character_box_inside"><p class="all_character_name">海豹女精靈</p></div></div>
+					<!-- 新增玩家 -->
+					<div class="character_box_plus" id="plus" data-toggle="modal" data-target="#popWindow">
+						<div class="character_box_inside">
+							<img src="https://api.fnkr.net/testimg/350x200/888888/DDD/?text=New">
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- ??? -->
+			<!-- 角色資訊與對話 -->
+			<div class="character_info" id="character_info">
+				<div class="character_info_box"></div>
+				<div class="xicon remove icon"></div>
+			</div>
+			<!-- 角色立繪 -->
+			<div class="character_info_pic" id="character_info_pic"></div>
+			<div id="character_info_name"><p class="character_info_name_font"></p></div>
+
+		<!-- 骰子 -->
+		<div class="dice_box">
+			<!-- 點擊骰子後展開的視窗 -->
+			<div id="dice_window" class="dice_window">
+				<!-- 選擇骰子 -->
+				<div class="dice_window_chose">
+					<div class="dice_window_chose_dice"><div class="dice_window_chose_dice_pic">
+						<div class="circle"></div>
+					</div></div>
+					<div class="dice_window_chose_dice"><div class="dice_window_chose_dice_pic"></div></div>
+					<div class="dice_window_chose_dice"><div class="dice_window_chose_dice_pic"></div></div>
+					<div class="dice_window_chose_dice"><div class="dice_window_chose_dice_pic"></div></div>
+					<div class="dice_window_chose_dice"><div class="dice_window_chose_dice_pic"></div></div>
+					<div class="dice_window_chose_dice"><div class="dice_window_chose_dice_pic"></div></div>
+					<div class="dice_window_chose_dice"><div class="dice_window_chose_dice_pic"></div></div>
+				</div>
+				<input type="text" class="dice_amount">
+				<!-- 擲骰確認 -->
+				<div class="dice_go"></div>
+			</div>
+			<div class="dice_box_inside" id="dice_btn"></div>
+		</div>
+
+		<!--  聊天室  -->
+		<div class="text_box">
+			<!-- 主要聊天室 -->
+			<div class="text_box_main scroll container">
+				<!-- 標籤 -->
+				<div class="major_glass" id="glass">主要</div>
+				<div class="chat_id chat_id_up" id="player_tag"><p></p></div>
+				<!-- 內文。接上資料庫後，此區塊會轉為陣列 -->
+				<div id="major_chat_lobby" class="text_box_text_main scroll">
+					
+				</div>
+				<!-- 文字輸入 -->
+				<textarea class="text_input_main_box" id="major_chat"></textarea>
+			</div>
+
+			<!-- 閒聊聊天室 -->
+			<div class="text_box_chat scroll container">
+				<!-- 標籤 -->
+				<div class="talk" id="talk">閒聊</div>
+				<div class="chat_id chat_id_down" id="player_tag_chat"><p></p></div>
+				<!-- 內文。接上資料庫後，此區塊會轉為陣列 -->
+				<div id="gossip_chat_lobby" class="text_box_text_chat scroll">
+					
+				</div>
+				<!-- 文字輸入 -->
+				<textarea class="text_input_chat_box" id="gossip_chat"></textarea>
+			</div>
+		</div>
+	</div>
+	<!-- ??? -->
+<!--
+	<div id="popWindow">
+		<div class="fuck_off"><p>fuck_off</p></div>
+		<div class="character_box_appearance">創造角色</div>
+		<div class="character_box_appearance_dis"></div>
+		<div class="character_box_appearance">從資料庫選擇</div>
+	</div>
+--->
+	<!-- 新的 pop window. 你們不喜歡的話我再改，或者是打掉用舊的 -->
+	<div class="modal fade" id="popWindow" tabindex="-1">
+		<div class="modal-dialog modal-dialog-centered" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">新增角色</h5>
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+					</button>
+				</div>
+				<div class="modal-body" style="text-align:center;">
+					<button type="button" class="btn btn-outline-secondary btn-lg btn-block" data-dismiss="modal">創造角色</button>
+					<button type="button" class="btn btn-outline-secondary btn-lg btn-block" data-dismiss="modal">從資料庫選擇</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div id="popwindow_character_change">
+		<div class="popwindow_character_text"><span>確定選擇
+			<span class="popwindow_character_text_color"></span> 成為目前角色？</span></div>
+		<div id="character_change_cancel">取消</div>
+		<div id="character_change_yes">選擇角色</div>
+	</div>
+</body>
+
+<!-- 拖移事件 --/
+	<script src="https://cdn.staticfile.org/dragula/3.7.2/dragula.min.js" charset="utf-8"></script>
+	<script type="text/javascript">
+		var drake = dragula([document.querySelector('#bottom_scroll')])
+	</script>
+-->
+
+<script>
+	// 刪掉一些非 DM 看不到的東西
+	if(confirm("DM = 取消　　　玩家 = 確定")) {
+		document.getElementById("dm_map_edit").style.display = "none";
+		document.getElementById("plus").style.display = "none";
+	}
+
+	//骰子按鈕的開關
+	document.getElementById("dice_btn").onclick = function() {
+		var diceWindow = document.getElementById("dice_window");
+		diceWindow.style.width  = (diceWindow.style.width  == "50vh")? "0vh": "50vh";
+		diceWindow.style.height = (diceWindow.style.height == "50vh")? "0vh": "50vh";
+		diceWindow.style.right  =  "24%";
+		diceWindow.style.bottom = "18vh";
+	}
+
+	var character_box = document.getElementsByClassName('character_box');
+	character_box.onclick = function() {
+		console.log("fuck you");
+		document.getElementById("character_info").style.height = "23vh";
+		document.getElementById("character_info_pic").style.height = "50vh";
+	}
+
+	// 申明全局变量
+	var timeStart, timeEnd, time;
+
+	// 获取此刻时间
+	function getTimeNow() {
+		var now = new Date();
+		return now.getTime();
+	}
+	var character_map_new;
+	// 長按跳出（選擇）交換目前角色清單（DM）
+	$('.character_box').mousedown(function(){
+
+		character_map_new = jQuery(this).children("div").children("p").text();
+		//获取鼠标按下时的时间
+		timeStart = getTimeNow();
+		//setInterval 会每 100 毫秒执行一次，也就是每 100 毫秒获取一次时间
+		time = setInterval(function () {
+			timeEnd = getTimeNow();
+
+			//如果此时检测到的时间与第一次获取的时间差有1000毫秒
+			if(timeEnd - timeStart > 1000) {
+				//便不再继续重复此函数 （clearInterval取消周期性执行）
+				clearInterval(time);
+				console.log('character:'+character_map_new);
+				name = character_map_new;
+				allObjJson["object"][name] = [];
+				allObjJson["object"][name][0] = 1;
+				allObjJson["object"][name][1] = 1;
+				allObjJson["object"][name][2] = 1;			//z座標
+				allObjJson["object"][name][3] = prompt('輸入物件圖像連結','');
+
+				img[name] = new Image();
+				img[name].src = allObjJson["object"][name][3];
+
+				drawDrid("");
+				ctxHid.stroke();
+				drawMagnifier(canvasMapHid);
+			}
+		}, 100);
+	});
+
+	// 清除長按的時間計算
+	$('.character_box').mouseup(function(){
+		console.log('clear');
+		clearInterval(time);
+	});
+
+//	禁止滑鼠右鍵選單顯示
+//	document.oncontextmenu = function(){return false};
+	
+	var change_character;
+
+	// 右鍵跳出（選擇）交換目前角色清單（DM）
+	$(".character_box").mouseup(function(e) {
+		if(e.button === 2) {
+			change_character = jQuery(this).children("div").children("p").text();
+			console.log(change_character);
+			$(".popwindow_character_text_color").html(change_character);
+			document.getElementById("popwindow_character_change").style.height = "150px";
+		}
+	});
+
+	//（選擇）交換角色
+	$("#character_change_yes").click(function() {
+		// jQuery(this).children("div").text() = $("character_info_main").text();
+		$("#character_info_main").children("div").children("p").html(change_character);
+		document.getElementById("popwindow_character_change").style.height = "0px";
+	});
+
+	// 取消（選擇）交換角色
+	$("#character_change_cancel").click(function() {
+		document.getElementById("popwindow_character_change").style.height = "0px";
+	});
+
+	// 雙擊彈出角色資訊（多個）與對話 && 角色立繪
+	$('.character_box').dblclick(function() {
+		document.getElementById("character_info").style.height = "23vh";
+		document.getElementById("character_info_pic").style.height = "50vh";
+		document.getElementById("character_info_name").style.height = "7vh";
+		$("#character_info_name").children("p").text(jQuery(this).children("div").text());
+	});
+
+	// 收回角色資訊與對話＆＆角色立繪
+	var character_info = document.getElementById("character_info");
+	character_info.onclick = function(){
+		document.getElementById("character_info").style.height = "0px";
+		document.getElementById("character_info_pic").style.height = "0px";
+		document.getElementById("character_info_name").style.height = "0vh";
+	}
+
+	// 說話到主要聊天室
+	$("#major_chat").keypress(function(event) {
+		if(event.which == 13) {
+			if(this.value != "" && this.value != "\n") {
+				socket.emit('major_chat_Message', {"player": document.getElementById("myName").innerHTML, "message": this.value});
+			}
+			this.value = "";
+			event.preventDefault();
+		}
+	});
+
+	// 說話到閒聊聊天室
+	$("#gossip_chat").keypress(function(event) {
+		if(event.which == 13) {
+			if(this.value != "" && this.value != "\n") {
+				socket.emit('gossip_chat_Message', {"player": document.getElementById("myName").innerHTML, "message": this.value});
+			}
+			this.value = "";
+			event.preventDefault();
+		}
+	});
+	
+	//標籤（區別主要與次要聊天室）
+	$("#major_chat").click(function() {
+		document.getElementById("glass").style.width = "0px";
+		document.getElementById("player_tag").style.width = "30vh";
+		$("#player_tag").children("p").text($("#character_info_main").children("div").children("p").text());
+	});
+
+	$("#major_chat").blur(function() {
+		document.getElementById("glass").style.width = "18vh";
+		document.getElementById("player_tag").style.width = "0vh";
+	});
+
+	$("#gossip_chat").click(function() {
+		document.getElementById("talk").style.width = "0px";
+		document.getElementById("player_tag_chat").style.width = "30vh";
+		$("#player_tag_chat").children("p").text($("#character_info_main").children("div").children("p").text());
+	});
+
+	$("#gossip_chat").blur(function() {
+		document.getElementById("talk").style.width = "18vh";
+		document.getElementById("player_tag_chat").style.width = "0vh";
+	});
+
+	var timeStart, timeEnd, time;
+
+	//获取此刻时间
+	function getTimeNow() {
+		var now = new Date();
+		return now.getTime();
+	}
+
+	$('#major_chat').click(function() {
+		timeStart = getTimeNow();
+		time = setInterval(function() {
+			timeEnd = getTimeNow();
+			if(timeEnd - timeStart > 2000) {
+				clearInterval(time);
+				document.getElementById("player_tag").style.width = "0vh";
+			}
+		}, 100);
+	});
+
+	$('#gossip_chat').click(function() {
+		timeStart = getTimeNow();
+		time = setInterval(function() {
+			timeEnd = getTimeNow();
+			if(timeEnd - timeStart > 2000) {
+				clearInterval(time);
+				document.getElementById("player_tag_chat").style.width = "0vh";
+			}
+		}, 100);
+	});
+
+	// 地圖類函數
+	reader = document.getElementById("uploader");
+	reader.addEventListener("change", handleFiles, false);
+
+	canvasMap = document.getElementById("map");
+	canvasMapHid = document.getElementById("maphid");
+	ctxHid = canvasMapHid.getContext("2d");
+	ctx = canvasMap.getContext("2d");
+
+
+	img = {};//預載圖片
+	allObjJson = {};//地圖資料
+
+	centerPoint = {};//放大中心
+	scale = 1;//放大倍率
+
+	size = 40;
+	target = "";
+
+	canvasMap.onmousedown = function(e){
+		var rect = canvasMap.getBoundingClientRect();
+		var x = e.clientX - rect.left;
+		var y = e.clientY - rect.top;
+		nx = x, ny = y;
+		var temp = realXY(x, y);
+		var x = parseInt(temp[0]/size)+1;
+		var y = parseInt(temp[1]/size)+1;
+		for(var i in allObjJson["object"]){
+			if(allObjJson["object"][i][0] == x && allObjJson["object"][i][1] == y){
+				target = i;
+				console.log("change");
+				break;
+			}
+		}
+//		console.log(x, y, target, "downpsl");
+		canvasMap.onmousemove  = function(e){
+			var rect = canvasMap.getBoundingClientRect();
+			var x = e.clientX - rect.left;
+			var y = e.clientY - rect.top;
+//			console.log(x,y);
+			if(target != ""){
+				var temp = realXY(x, y);
+				var x = temp[0];
+				var y = temp[1];
+				if(x < 0){
+					x = 0;
+				}
+				if(y < 0){
+					y = 0;
+				}
+				if(x+size > allObjJson["size"][0]*size){
+					x = allObjJson["size"][0]*size-size;
+				}
+				if(y+size > allObjJson["size"][1]*size){
+					y = allObjJson["size"][1]*size-size;
+				}
+				drawDrid(target);
+				ctxHid.drawImage(img[target], x, y, size, size);
+				ctxHid.stroke();
+		        drawMagnifier(canvasMapHid);
+			}
+			else{
+				var direction = {"x":x - nx, "y":y-ny};
+				centerPoint.x += direction.x;
+				centerPoint.y += direction.y;
+				nx = x;
+				ny = y;
+				drawDrid("");
+				ctxHid.stroke();
+		        drawMagnifier(canvasMapHid);
+			}
+		};
+		canvasMap.onmouseleave = function(e){
+			if(target == ""){
+				canvasMap.onmousemove  = function(e){}
+			}
+		}
+	}
+
+	canvasMap.onmouseup = function(e){
+		if(target != ""){
+			var rect = canvasMap.getBoundingClientRect();
+			var x = e.clientX - rect.left;
+			var y = e.clientY - rect.top;
+			var temp = realXY(x, y);
+			var x = parseInt(temp[0]/size)+1;
+			var y = parseInt(temp[1]/size)+1;
+			if(x < 1){
+				x = 1;
+			}
+			if(y < 1){
+				y = 1;
+			}
+			if(x > allObjJson["size"][0]){
+				x = allObjJson["size"][0];
+			}
+			if(y > allObjJson["size"][1]){
+				y = allObjJson["size"][1];
+			}
+//			console.log(x, y, target, "UP");
+			socket.emit('update_object_location', {"x": x, "y": y, "target": target});
+
+			allObjJson["object"][target][0] = x;
+			allObjJson["object"][target][1] = y;
+			drawDrid('');
+	        ctxHid.stroke();
+	        drawMagnifier(canvasMapHid);
+	        target = "";
+		}
+		canvasMap.onmousemove  = function(e){
+		};
+	};
+
+	socket.on('receive_update_object_location', function(data) {
+		allObjJson["object"][data["target"]][0] = data["x"];
+		allObjJson["object"][data["target"]][1] = data["y"];
+		drawDrid('');
+		ctxHid.stroke();
+		drawMagnifier(canvasMapHid);
+		target = "";
+	});
+
+	canvasMap.onmouseenter  = function(e){
+		canvasMap.onmousewheel =function(e){
+	        if(e.wheelDelta){            //判斷瀏覽器IE，谷歌滑輪事件
+		        if(e.wheelDelta>0){  //當滑輪向上滾動時
+		        	scale+=0.05;
+//		           	console.log("滑輪向上滾動");
+		        }
+		        if(e.wheelDelta<0){          //當滑輪向下滾動時
+		        	scale-=0.05;
+//		            console.log("滑輪向下滾動");
+		        }
+	    	}else if(e.detail){             //Firefox滑輪事件
+	            if(e.detail>0){         //當滑輪向下滾動時
+	            	scale-=0.05;
+//	                console.log("滑輪向下滾動");
+	       		}
+	         	if(e.detail<0){            //當滑輪向上滾動時
+	         		scale+=0.05;
+//	                console.log("滑輪向上滾動");
+	         	}
+	        }
+	        if(scale<0.1){scale = 0.1};
+//	        console.log(scale);
+	        drawDrid('');
+	        ctxHid.stroke();
+	        drawMagnifier(canvasMapHid);
+	 	};
+	};
+	canvasMap.onmouseleave  = function(e){
+		canvasMap.onmousewheel =function(e){};
+	}
+
+</script>
+</html>
