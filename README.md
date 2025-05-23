@@ -21,7 +21,7 @@
 1. **安裝 Node.js** (v16+)
 2. **下載專案並安裝相依套件**
    ```bash
-   git clone https://github.com/<你的帳號>/dnd-platform-college.git
+   git clone https://github.com/asloli/dnd-platform-college.git
    cd dnd-platform-college
    npm install
    ```
